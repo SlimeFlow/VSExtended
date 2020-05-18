@@ -1,0 +1,6 @@
+name: ${project.artifactId}
+main: com.slimeflow.vsextended.VSExtended
+version: ${project.build.version}
+author: Litshei
+description: An extension for Bukkit VoxelSniper
+depend: [VoxelSniper]
