@@ -1,6 +1,12 @@
 name: ${project.artifactId}
 main: com.slimeflow.vsextended.VSExtended
 version: ${project.build.version}
+api-version: 1.15
 author: Litshei
 description: An extension for Bukkit VoxelSniper
 depend: [VoxelSniper]
+commands:
+  b:
+    description: Brush.
+    permission: voxelsniper.sniper
+    usage: Invalid syntax. Use /<command> help to see valid syntax.
