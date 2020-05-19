@@ -9,6 +9,7 @@ import com.thevoxelbox.voxelsniper.snipe.Undo;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -29,12 +30,17 @@ public class PeakBrush extends Brush {
     private final double NOISE_SCALE_DEFAULT = 20;
     private double noiseScale = NOISE_SCALE_DEFAULT;
 
+    private final int FILLING_DEPTH_DEFAULT = 3;
+    private int fillingDepth = 3;
+
     public PeakBrush() {
         this.setName("Peak");
     }
 
     private void addPeak(final SnipeData v, Block targetBlock, boolean inverted) {
         final Undo u = new Undo();
+
+        v.sendMessage("adding peak...");
 
         int bSize = v.getBrushSize();
         int minX = GenericMath.floor(targetBlock.getX() - bSize);
@@ -56,7 +62,7 @@ public class PeakBrush extends Brush {
                 double easeMultiplier = ease(revertedDistance);
 
                 int easedElevation = GenericMath.floor(elevation * easeMultiplier);
-                generateElevationAtPos(x, targetBlock.getY(), z, easedElevation, u, v.getVoxelMaterial(), inverted);
+                generateElevationAtPos(x, targetBlock.getY(), z, easedElevation, u, v.getVoxelMaterial(), inverted, v);
             }
         }
         v.owner().storeUndo(u);
@@ -77,7 +83,7 @@ public class PeakBrush extends Brush {
         return noise(sampleX, sampleZ);
     }
 
-    private void generateElevationAtPos(int x, int y, int z, int elevation, Undo u, Material m, boolean inverted) {
+    private void generateElevationAtPos(int x, int y, int z, int elevation, Undo u, Material m, boolean inverted, SnipeData v) {
         if (elevation >= 1) {
             if (inverted) {
                 for (int i = 0; i <= elevation; i++) {
@@ -85,17 +91,26 @@ public class PeakBrush extends Brush {
                     u.put(this.clampY(x, currY, z));
                     setBlockMaterialAndDataAt(x, currY, z, m.createBlockData());
                 }
+                for (int i = 1; i <= this.fillingDepth; i++){
+                    int depth = y + i;
+                    Material mat = getBlockMaterialAt(x, depth, z);
+                    if (mat == Material.VOID_AIR || mat == Material.AIR) {
+                        u.put(this.clampY(x, depth, z));
+                        setBlockMaterialAndDataAt(x, depth, z, m.createBlockData());
+                    }
+                }
             } else {
                 for (int i = 0; i <= elevation; i++) {
                     int currY = y + i;
                     u.put(this.clampY(x, currY, z));
                     setBlockMaterialAndDataAt(x, currY, z, m.createBlockData());
-
-                    int underY = currY - 1;
-                    while (getBlockMaterialAt(x, underY, z) == Material.AIR) {
-                        setBlockMaterialAndDataAt(x, underY, z, m.createBlockData());
-                        u.put(this.clampY(x, underY, z));
-                        underY--;
+                }
+                for (int i = 1; i <= this.fillingDepth; i++){
+                    int depth = y - i;
+                    Material mat = getBlockMaterialAt(x, depth, z);
+                    if (mat == Material.VOID_AIR || mat == Material.AIR) {
+                        u.put(this.clampY(x, depth, z));
+                        setBlockMaterialAndDataAt(x, depth, z, m.createBlockData());
                     }
                 }
             }
@@ -128,6 +143,7 @@ public class PeakBrush extends Brush {
         vm.custom(ChatColor.GREEN + "Noise Scale (sc): " + this.noiseScale);
         vm.custom(ChatColor.GREEN + "Elevation (el): " + this.elevationMax);
         vm.custom(ChatColor.GREEN + "Ease Factor (ef): " + this.easeFactor);
+        vm.custom(ChatColor.GREEN + "Fill Depth (depth): " + this.fillingDepth);
         vm.size();
     }
 
@@ -165,10 +181,17 @@ public class PeakBrush extends Brush {
                 v.sendMessage(ChatColor.GREEN + "Elevation set to " + this.elevationMax);
             }
             if (params[0].equalsIgnoreCase("seed")){
-                int seedIpt = Integer.parseInt(params[1]);
 
-                this.seed = seedIpt;
+                this.seed = Integer.parseInt(params[1]);
                 v.sendMessage(ChatColor.GREEN + "Seed set to " + this.seed);
+            }
+            if (params[0].equalsIgnoreCase("depth")){
+                int depthInput = Integer.parseInt(params[1]);
+                if (depthInput < 0) {
+                    depthInput = FILLING_DEPTH_DEFAULT;
+                }
+                this.fillingDepth = depthInput;
+                v.sendMessage(ChatColor.GREEN + "Filling depth set to " + this.fillingDepth);
             }
         } catch (NumberFormatException e) {
             v.sendMessage(ChatColor.RED + "Invalid parameter! Use " + ChatColor.LIGHT_PURPLE + "'/b " + triggerHandle + " info'" + ChatColor.RED + " to display valid parameters.");
@@ -179,7 +202,7 @@ public class PeakBrush extends Brush {
     public List<String> registerArguments() {
         List<String> arguments = new ArrayList<>();
 
-        arguments.addAll(Lists.newArrayList("sc", "el", "ef", "seed"));
+        arguments.addAll(Lists.newArrayList("sc", "el", "ef", "depth", "seed"));
 
         return arguments;
     }
@@ -192,6 +215,7 @@ public class PeakBrush extends Brush {
         argumentValues.put("sc", Lists.newArrayList("[number]"));
         argumentValues.put("el", Lists.newArrayList("[number]"));
         argumentValues.put("ef", Lists.newArrayList("[number]"));
+        argumentValues.put("depth", Lists.newArrayList("[number]"));
         argumentValues.put("seed", Lists.newArrayList("[number]"));
 
         argumentValues.putAll(super.registerArgumentValues());
