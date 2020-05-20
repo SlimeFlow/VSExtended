@@ -2,6 +2,11 @@ package com.slimeflow.vsextended.brush;
 
 import com.flowpowered.math.GenericMath;
 import com.google.common.collect.Lists;
+import com.slimeflow.vsextended.brush.presets.PeakPreset;
+import com.slimeflow.vsextended.brush.presets.PeakData;
+import com.slimeflow.vsextended.math.curves.EaseOutCurve;
+import com.slimeflow.vsextended.math.MVector2D;
+import com.slimeflow.vsextended.utils.MVector3D;
 import com.thevoxelbox.voxelsniper.VoxelMessage;
 import com.thevoxelbox.voxelsniper.brush.Brush;
 import com.thevoxelbox.voxelsniper.snipe.SnipeData;
@@ -11,58 +16,53 @@ import org.bukkit.Material;
 import org.bukkit.block.Block;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static com.slimeflow.vsextended.utils.SimplexNoise.noise;
 
+
+
 public class PeakBrush extends Brush {
 
-    private final int SEED_DEFAULT = 0;
-    private int seed = SEED_DEFAULT;
-
-    private final int EASE_FACTOR_DEFAULT = 5;
-    private int easeFactor = EASE_FACTOR_DEFAULT;
-
-    private final int ELEVATION_MAX_DEFAULT = 30;
-    private int elevationMax = ELEVATION_MAX_DEFAULT;
-
-    private final double NOISE_SCALE_DEFAULT = 20;
-    private double noiseScale = NOISE_SCALE_DEFAULT;
-
-    private final int FILLING_DEPTH_DEFAULT = 3;
-    private int fillingDepth = 3;
+    private PeakPreset preset = PeakPreset.DEFAULT;
+    private PeakData params;
 
     public PeakBrush() {
         this.setName("Peak");
+        params = preset.createData();
     }
 
     private void addPeak(final SnipeData v, Block targetBlock, boolean inverted) {
         final Undo u = new Undo();
 
-        v.sendMessage("adding peak...");
-
         int bSize = v.getBrushSize();
-        int minX = GenericMath.floor(targetBlock.getX() - bSize);
-        int maxX = GenericMath.floor(targetBlock.getX() + bSize);
-        int minZ = GenericMath.floor(targetBlock.getZ() - bSize);
-        int maxZ = GenericMath.floor(targetBlock.getZ() + bSize);
-        int rootX = targetBlock.getX();
-        int rootZ = targetBlock.getZ();
 
-        double maxDistance = getBlockDistance(rootX, rootZ, minX, minZ);
+        MVector2D vRoot = new MVector2D(targetBlock.getX(), targetBlock.getZ());
+        MVector2D vMin  = new MVector2D(GenericMath.floor(targetBlock.getX() - bSize), GenericMath.floor(targetBlock.getZ() - bSize));
+        MVector2D vMax  = new MVector2D(GenericMath.floor(targetBlock.getX() + bSize), GenericMath.floor(targetBlock.getZ() + bSize));
+        double maxDist  = vRoot.distance(vMin);
 
-        for (int x = minX; x <= maxX; x++) {
-            for (int z = minZ; z <= maxZ; z++) {
+        for (int x = vMin.x(); x <= vMax.x(); x++) {
+            for (int z = vMin.z(); z <= vMax.z(); z++) {
+
+                // Get elevation by noise
                 double noise = getSimplexNoiseForPos(x, z);
-                int elevation = map(noise, -1, 1, 0, this.elevationMax);
+                int elevation = map(noise, -1, 1, 0, this.params.getElevation());
 
-                double normalizedBlockDistance = getBlockDistance(rootX, rootZ, x, z) / maxDistance;
-                double revertedDistance = 1 - normalizedBlockDistance;
-                double easeMultiplier = ease(revertedDistance);
+                // ease elevation
+                if (this.params.getEasing() > 0) {
+                    double revertedNormalizedDistance = 1 - (vRoot.distance(x, z) / maxDist);
+                    EaseOutCurve curve = new EaseOutCurve(this.params.getEasing());
+                    double easeOut = curve.evaluate(revertedNormalizedDistance);
+                    elevation = GenericMath.floor(elevation * easeOut);
+                }
 
-                int easedElevation = GenericMath.floor(elevation * easeMultiplier);
-                generateElevationAtPos(x, targetBlock.getY(), z, easedElevation, u, v.getVoxelMaterial(), inverted, v);
+                // generate blocs
+                MVector3D pos = new MVector3D(x, targetBlock.getY(), z);
+                generateElevationAtPos(pos, elevation, u, v.getVoxelMaterial(), inverted, v);
             }
         }
         v.owner().storeUndo(u);
@@ -77,54 +77,44 @@ public class PeakBrush extends Brush {
     }
 
     private double getSimplexNoiseForPos(int x, int z) {
-        double sampleX = (x / this.noiseScale) + this.seed;
-        double sampleZ = (z / this.noiseScale) + this.seed;
+        double sampleX = (x / this.params.getNoiseScale()) + this.params.getSeed();
+        double sampleZ = (z / this.params.getNoiseScale()) + this.params.getSeed();
 
         return noise(sampleX, sampleZ);
     }
 
-    private void generateElevationAtPos(int x, int y, int z, int elevation, Undo u, Material m, boolean inverted, SnipeData v) {
+    private void generateElevationAtPos(MVector3D pos, int elevation, Undo u, Material m, boolean inverted, SnipeData v) {
         if (elevation >= 1) {
             if (inverted) {
                 for (int i = 0; i <= elevation; i++) {
-                    int currY = y - i;
-                    u.put(this.clampY(x, currY, z));
-                    setBlockMaterialAndDataAt(x, currY, z, m.createBlockData());
+                    int currY = pos.y() - i;
+                    u.put(this.clampY(pos.x(), currY, pos.z()));
+                    setBlockMaterialAndDataAt(pos.x(), currY, pos.z(), m.createBlockData());
                 }
-                for (int i = 1; i <= this.fillingDepth; i++){
-                    int depth = y + i;
-                    Material mat = getBlockMaterialAt(x, depth, z);
+                for (int i = 1; i <= this.params.getDepth(); i++){
+                    int depth = pos.y() + i;
+                    Material mat = getBlockMaterialAt(pos.x(), depth, pos.z());
                     if (mat == Material.VOID_AIR || mat == Material.AIR) {
-                        u.put(this.clampY(x, depth, z));
-                        setBlockMaterialAndDataAt(x, depth, z, m.createBlockData());
+                        u.put(this.clampY(pos.x(), depth, pos.z()));
+                        setBlockMaterialAndDataAt(pos.x(), depth, pos.z(), m.createBlockData());
                     }
                 }
             } else {
                 for (int i = 0; i <= elevation; i++) {
-                    int currY = y + i;
-                    u.put(this.clampY(x, currY, z));
-                    setBlockMaterialAndDataAt(x, currY, z, m.createBlockData());
+                    int currY = pos.y() + i;
+                    u.put(this.clampY(pos.x(), currY, pos.z()));
+                    setBlockMaterialAndDataAt(pos.x(), currY, pos.z(), m.createBlockData());
                 }
-                for (int i = 1; i <= this.fillingDepth; i++){
-                    int depth = y - i;
-                    Material mat = getBlockMaterialAt(x, depth, z);
+                for (int i = 1; i <= this.params.getDepth(); i++){
+                    int depth = pos.y() - i;
+                    Material mat = getBlockMaterialAt(pos.x(), depth, pos.z());
                     if (mat == Material.VOID_AIR || mat == Material.AIR) {
-                        u.put(this.clampY(x, depth, z));
-                        setBlockMaterialAndDataAt(x, depth, z, m.createBlockData());
+                        u.put(this.clampY(pos.x(), depth, pos.z()));
+                        setBlockMaterialAndDataAt(pos.x(), depth, pos.z(), m.createBlockData());
                     }
                 }
             }
         }
-    }
-
-    private double getBlockDistance(int x1, int z1, int x2, int z2) {
-
-        return Math.sqrt((x2-x1)*(x2-x1) + (z2-z1)*(z2-z1));
-
-    }
-
-    private double ease(double value) {
-        return (Math.pow(value, this.easeFactor + 1) / (Math.pow(value,2) + (1 - value)));
     }
 
     @Override
@@ -140,12 +130,15 @@ public class PeakBrush extends Brush {
     @Override
     public void info(VoxelMessage vm) {
         vm.brushName(this.getName());
-        vm.custom(ChatColor.GREEN + "Noise Scale (sc): " + this.noiseScale);
-        vm.custom(ChatColor.GREEN + "Elevation (el): " + this.elevationMax);
-        vm.custom(ChatColor.GREEN + "Ease Factor (ef): " + this.easeFactor);
-        vm.custom(ChatColor.GREEN + "Fill Depth (depth): " + this.fillingDepth);
+        vm.custom(ChatColor.GREEN + "Noise Scale (noiseScale): " + this.params.getNoiseScale());
+        vm.custom(ChatColor.GREEN + "Elevation (elevation): " + this.params.getElevation());
+        vm.custom(ChatColor.GREEN + "Ease Factor (ease): " + this.params.getEasing());
+        vm.custom(ChatColor.GOLD + "Fill Depth (depth): " + this.params.getDepth());
+        vm.custom(ChatColor.GOLD + "Seed (seed): " + this.params.getSeed());
+        vm.custom(ChatColor.BLUE + "Preset :  " + this.preset.name());
         vm.size();
     }
+
 
     @Override
     public String getPermissionNode() {
@@ -155,43 +148,68 @@ public class PeakBrush extends Brush {
     @Override
     public void parseParameters(String triggerHandle, String[] params, SnipeData v) {
 
-        try {
-            if (params[0].equalsIgnoreCase("sc")){
-                double noiseScaleInput = Double.parseDouble(params[1]);
-                if (noiseScaleInput < NOISE_SCALE_DEFAULT) {
-                    noiseScaleInput = NOISE_SCALE_DEFAULT;
-                }
-                this.noiseScale = noiseScaleInput;
-                v.sendMessage(ChatColor.GREEN + "Noise Scale set to " + this.noiseScale);
+        //preset param...
+        if (params[0].equalsIgnoreCase("preset")){
+            try {
+                PeakPreset presetInput = PeakPreset.valueOf(params[1].toUpperCase());
+                this.preset = presetInput;
+                this.params = presetInput.createData();
+                this.info(new VoxelMessage(v));
+            } catch (IllegalArgumentException e) {
+                v.sendMessage(ChatColor.RED + "Invalid Preset Name !");
             }
-            if (params[0].equalsIgnoreCase("ef")){
-                int easeInput = Integer.parseInt(params[1]);
-                if (easeInput < 0) {
-                    easeInput = EASE_FACTOR_DEFAULT;
-                }
-                this.easeFactor = easeInput;
-                v.sendMessage(ChatColor.GREEN + "Ease set to " + this.easeFactor);
-            }
-            if (params[0].equalsIgnoreCase("el")){
-                int elevationIpt = Integer.parseInt(params[1]);
-                if (elevationIpt < 5) {
-                    elevationIpt = ELEVATION_MAX_DEFAULT;
-                }
-                this.elevationMax = elevationIpt;
-                v.sendMessage(ChatColor.GREEN + "Elevation set to " + this.elevationMax);
-            }
-            if (params[0].equalsIgnoreCase("seed")){
+        }
 
-                this.seed = Integer.parseInt(params[1]);
-                v.sendMessage(ChatColor.GREEN + "Seed set to " + this.seed);
+        try {
+            //Noise scale Param...
+            if (params[0].equalsIgnoreCase("noiseScale")){
+                double noiseScaleInput = Double.parseDouble(params[1]);
+
+                if (this.params.validateNoiseScale(noiseScaleInput)) {
+                    this.params.setNoiseScale(noiseScaleInput);
+                } else {
+                    this.params.setNoiseScale(1);
+                    v.sendMessage(ChatColor.RED + "Noise scale must be at least 1.");
+                }
+                v.sendMessage(ChatColor.GREEN + "Noise Scale set to " + this.params.getNoiseScale());
             }
+            //Easing Param...
+            if (params[0].equalsIgnoreCase("ease")){
+                int easeInput = Integer.parseInt(params[1]);
+
+                if (easeInput < 0) {
+                    this.params.setEasing(0);
+                    v.sendMessage(ChatColor.RED + "Ease disabled ! You cant set a value below 0.");
+                } else {
+                    if (easeInput == 0) {
+                        this.params.setEasing(easeInput);
+                        v.sendMessage(ChatColor.GREEN + "Ease disabled");
+                    } else {
+                        this.params.setEasing(easeInput);
+                        v.sendMessage(ChatColor.GREEN + "Ease set to " + this.params.getEasing());
+                    }
+                }
+
+
+            }
+
+            //Elevation Param...
+            if (params[0].equalsIgnoreCase("elevation")){
+                int elevationIpt = Integer.parseInt(params[1]);
+                this.params.setElevation(elevationIpt);
+                v.sendMessage(ChatColor.GREEN + "Elevation set to " + this.params.getElevation());
+            }
+
+            if (params[0].equalsIgnoreCase("seed")){
+                int seedInput = Integer.parseInt(params[1]);
+                this.params.setSeed(seedInput);
+                v.sendMessage(ChatColor.GREEN + "Seed set to " + this.params.getSeed());
+            }
+
             if (params[0].equalsIgnoreCase("depth")){
                 int depthInput = Integer.parseInt(params[1]);
-                if (depthInput < 0) {
-                    depthInput = FILLING_DEPTH_DEFAULT;
-                }
-                this.fillingDepth = depthInput;
-                v.sendMessage(ChatColor.GREEN + "Filling depth set to " + this.fillingDepth);
+                this.params.setDepth(depthInput);
+                v.sendMessage(ChatColor.GREEN + "Filling depth set to " + this.params.getDepth());
             }
         } catch (NumberFormatException e) {
             v.sendMessage(ChatColor.RED + "Invalid parameter! Use " + ChatColor.LIGHT_PURPLE + "'/b " + triggerHandle + " info'" + ChatColor.RED + " to display valid parameters.");
@@ -202,7 +220,7 @@ public class PeakBrush extends Brush {
     public List<String> registerArguments() {
         List<String> arguments = new ArrayList<>();
 
-        arguments.addAll(Lists.newArrayList("sc", "el", "ef", "depth", "seed"));
+        arguments.addAll(Lists.newArrayList("noiseScale", "elevation", "ease", "depth", "seed", "preset"));
 
         return arguments;
     }
@@ -212,11 +230,13 @@ public class PeakBrush extends Brush {
         HashMap<String, List<String>> argumentValues = new HashMap<>();
 
 
-        argumentValues.put("sc", Lists.newArrayList("[number]"));
-        argumentValues.put("el", Lists.newArrayList("[number]"));
-        argumentValues.put("ef", Lists.newArrayList("[number]"));
+        argumentValues.put("noiseScale", Lists.newArrayList("[number]"));
+        argumentValues.put("elevation", Lists.newArrayList("[number]"));
+        argumentValues.put("ease", Lists.newArrayList("[number]"));
         argumentValues.put("depth", Lists.newArrayList("[number]"));
         argumentValues.put("seed", Lists.newArrayList("[number]"));
+        argumentValues.put("preset", Arrays.stream(PeakPreset.values()).map(e -> e.name()).collect(Collectors.toList()));
+
 
         argumentValues.putAll(super.registerArgumentValues());
         return argumentValues;
