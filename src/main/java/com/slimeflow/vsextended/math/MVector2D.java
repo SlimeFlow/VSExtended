@@ -1,6 +1,5 @@
 package com.slimeflow.vsextended.math;
 
-import com.slimeflow.vsextended.utils.MVector3D;
 import org.bukkit.Location;
 import org.bukkit.World;
 
