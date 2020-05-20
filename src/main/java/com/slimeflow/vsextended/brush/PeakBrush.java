@@ -6,7 +6,7 @@ import com.slimeflow.vsextended.brush.presets.PeakPreset;
 import com.slimeflow.vsextended.brush.presets.PeakData;
 import com.slimeflow.vsextended.math.curves.EaseOutCurve;
 import com.slimeflow.vsextended.math.MVector2D;
-import com.slimeflow.vsextended.utils.MVector3D;
+import com.slimeflow.vsextended.math.MVector3D;
 import com.thevoxelbox.voxelsniper.VoxelMessage;
 import com.thevoxelbox.voxelsniper.brush.Brush;
 import com.thevoxelbox.voxelsniper.snipe.SnipeData;
