@@ -8,8 +8,8 @@ public class MVector2D {
     public static final MVector2D ONE = new MVector2D(1,1);
     public static final MVector2D ZERO = new MVector2D(0,0);
 
-    public final int x;
-    public final int z;
+    private final int x;
+    private final int z;
 
     /***
      * Minecraft uses X and Z to represent the 2D plane axis coordinates. And Y for up.
@@ -23,6 +23,10 @@ public class MVector2D {
     }
     public MVector2D() { this(0,0); }
     public MVector2D(MVector3D v){ this(v.x, v.z); }
+
+
+    public int x() { return this.x; }
+    public int z() { return this.z; }
 
     /***
      * Calculate this distance between this vector coordinates and a raw set of coordinates
