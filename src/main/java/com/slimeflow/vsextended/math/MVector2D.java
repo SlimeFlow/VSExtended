@@ -1,5 +1,6 @@
-package com.slimeflow.vsextended.utils;
+package com.slimeflow.vsextended.math;
 
+import com.slimeflow.vsextended.utils.MVector3D;
 import org.bukkit.Location;
 import org.bukkit.World;
 
@@ -93,6 +94,19 @@ public class MVector2D {
      */
     public MVector2D negate() {
         return new MVector2D(-this.x, -this.z);
+    }
+
+
+    public MVector2D add(int x, int z) {
+        return new MVector2D(this.x + x, this.z + z);
+    }
+
+    public MVector2D add(int value) {
+        return this.add(value, value);
+    }
+
+    public MVector2D add(MVector2D v) {
+        return this.add(this.x + v.x(), this.z + v.z());
     }
 
     /***
