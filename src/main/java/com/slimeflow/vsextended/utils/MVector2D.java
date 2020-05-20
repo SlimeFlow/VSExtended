@@ -1,13 +1,12 @@
 package com.slimeflow.vsextended.utils;
 
-import com.flowpowered.math.vector.Vector2d;
 import org.bukkit.Location;
 import org.bukkit.World;
 
 public class MVector2D {
 
-    public static final Vector2d ONE = new Vector2d(1,1);
-    public static final Vector2d ZERO = new Vector2d(0,0);
+    public static final MVector2D ONE = new MVector2D(1,1);
+    public static final MVector2D ZERO = new MVector2D(0,0);
 
     public final int x;
     public final int z;
