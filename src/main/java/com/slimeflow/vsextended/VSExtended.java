@@ -32,7 +32,7 @@ public class VSExtended extends JavaPlugin {
         VoxelCommandManager vcm = VoxelCommandManager.getInstance();
 
         instance.getLogger().info("VoxelSniper CommandManager reloading attempt for enabling autocompletion...");
-        //Attepmt to access private field to enable autocompletion...
+        //Attempt to access private field to enable autocompletion...
         try {
 
             //Accessing field
