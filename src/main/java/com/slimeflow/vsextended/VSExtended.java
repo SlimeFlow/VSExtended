@@ -1,5 +1,6 @@
 package com.slimeflow.vsextended;
 
+import com.slimeflow.vsextended.brush.BlendBallErodeBrush;
 import com.slimeflow.vsextended.brush.PeakBrush;
 import com.slimeflow.vsextended.brush.SnowBrush;
 import com.thevoxelbox.voxelsniper.VoxelBrushManager;
@@ -25,6 +26,7 @@ public class VSExtended extends JavaPlugin {
         VoxelBrushManager vbm = VoxelBrushManager.getInstance();
         vbm.registerSniperBrush(PeakBrush.class, "pk", "peak");
         vbm.registerSniperBrush(SnowBrush.class, "snw", "snow");
+        vbm.registerSniperBrush(BlendBallErodeBrush.class, "eb", "erodeblendball");
 
         //Get VS CommandManager
         VoxelCommandManager vcm = VoxelCommandManager.getInstance();
