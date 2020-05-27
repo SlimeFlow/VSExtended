@@ -14,4 +14,9 @@ public class EaseOutCurve implements ICurve {
     public double evaluate(double time) {
         return (Math.pow(time, this.factor + 1) / (Math.pow(time,2) + (1 - time)));
     }
+
+    @Override
+    public String getName() {
+        return "Ease Out";
+    }
 }
