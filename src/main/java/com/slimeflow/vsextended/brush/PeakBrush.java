@@ -21,7 +21,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import static com.slimeflow.vsextended.utils.SimplexNoise.noise;
+import static com.slimeflow.vsextended.terragen.noise.SimplexNoise.noise;
 
 
 
