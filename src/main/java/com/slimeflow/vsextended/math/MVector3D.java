@@ -3,11 +3,12 @@ package com.slimeflow.vsextended.math;
 import com.slimeflow.vsextended.math.MVector2D;
 import org.bukkit.Location;
 import org.bukkit.World;
+import org.bukkit.block.Block;
 
 public class MVector3D {
-    public final int x;
-    public final int y;
-    public final int z;
+    private final int x;
+    private final int y;
+    private final int z;
 
 
     public MVector3D(int x, int y, int z) {
@@ -24,6 +25,7 @@ public class MVector3D {
     public MVector3D(MVector2D v) {
         this (v.x(), 0, v.z());
     }
+    public MVector3D(int size){ this.x = size; this.y = size; this.z = size; }
 
     public int x() { return this.x; }
     public int y() { return this.y; }
@@ -36,6 +38,10 @@ public class MVector3D {
 
     public Location toBukkitLocation(World w) {
         return new Location(w, this.x, this.y, this.z);
+    }
+
+    public static MVector3D fromBlockCoordinate(Block block) {
+        return new MVector3D(block.getX(), block.getY(), block.getZ());
     }
 
 }

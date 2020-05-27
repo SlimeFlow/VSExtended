@@ -22,7 +22,7 @@ public class MVector2D {
         this.z = z;
     }
     public MVector2D() { this(0,0); }
-    public MVector2D(MVector3D v){ this(v.x, v.z); }
+    public MVector2D(MVector3D v){ this(v.x(), v.z()); }
 
 
     public int x() { return this.x; }
